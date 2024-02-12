@@ -1,0 +1,14 @@
+[package]
+name = "mpu-6500-async"
+version = "0.1.0"
+authors = ["Witold Lipieta <witek103@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Async I2C driver for TDK InvenSense MPU-6500."
+keywords = ["mpu-6500", "i2c", "driver"]
+categories = ["no-std", "embedded"]
+repository = "https://github.com/witek103/mpu-6500-rs"
+readme = "README.md"
+
+[dependencies]
+embedded-hal-async = "1.0.0"
