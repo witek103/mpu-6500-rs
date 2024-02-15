@@ -8,6 +8,8 @@ const I2C_ADDR_AD0_HIGH: SevenBitAddress = 0b1101001;
 
 const WHO_AM_I: u8 = 0x70;
 
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RegisterMap {
     SmplRtDiv = 0x19,
     Config = 0x1A,
@@ -25,6 +27,7 @@ pub enum RegisterMap {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum GyroFullScaleRate {
     Dps250 = 0b00,
     Dps500 = 0b01,
@@ -33,6 +36,7 @@ pub enum GyroFullScaleRate {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum AccelFullScaleRate {
     G2 = 0b00,
     G4 = 0b01,
@@ -41,6 +45,7 @@ pub enum AccelFullScaleRate {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DigitalLowPassFilter {
     Filter0 = 0,
     Filter1 = 1,
@@ -53,6 +58,7 @@ pub enum DigitalLowPassFilter {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct RawData {
     x: i16,
     y: i16,
@@ -87,7 +93,6 @@ pub struct Mpu6500<T> {
     dev: T,
     address: SevenBitAddress,
 }
-
 
 impl<T> Mpu6500<T>
 where
@@ -130,6 +135,9 @@ where
         self.disable_interrupts().await?;
         self.configure_interrupt_pin().await?;
         self.set_clock_source(delay).await?;
+
+        #[cfg(feature = "defmt")]
+        defmt::trace!("MPU6500 initialized");
 
         Ok(())
     }

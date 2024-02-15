@@ -12,3 +12,7 @@ readme = "README.md"
 
 [dependencies]
 embedded-hal-async = "1.0.0"
+defmt = { version = "0.3.6", optional = true}
+
+[features]
+defmt = ["dep:defmt"]
