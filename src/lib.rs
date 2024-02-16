@@ -1,7 +1,10 @@
 #![no_std]
 
+pub mod raw_data;
+
 use embedded_hal_async::delay::DelayNs;
 use embedded_hal_async::i2c::{I2c, SevenBitAddress};
+use raw_data::RawData;
 
 const I2C_ADDR_AD0_LOW: SevenBitAddress = 0b1101000;
 const I2C_ADDR_AD0_HIGH: SevenBitAddress = 0b1101001;
@@ -55,38 +58,6 @@ pub enum DigitalLowPassFilter {
     Filter5 = 5,
     Filter6 = 6,
     Filter7 = 7,
-}
-
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct RawData {
-    x: i16,
-    y: i16,
-    z: i16,
-}
-
-impl RawData {
-    pub fn x(&self) -> i16 {
-        self.x
-    }
-
-    pub fn y(&self) -> i16 {
-        self.y
-    }
-
-    pub fn z(&self) -> i16 {
-        self.z
-    }
-}
-
-impl From<[u8; 6]> for RawData {
-    fn from(value: [u8; 6]) -> Self {
-        Self {
-            x: i16::from_be_bytes([value[0], value[1]]),
-            y: i16::from_be_bytes([value[2], value[3]]),
-            z: i16::from_be_bytes([value[4], value[5]]),
-        }
-    }
 }
 
 pub struct Mpu6500<T> {
@@ -254,7 +225,7 @@ where
 
     /// Read raw accelerometer measurement data
     pub async fn read_accel_data(&mut self) -> Result<RawData, T::Error> {
-        let mut data = [0; 6];
+        let mut data = [0; RawData::SIZE];
 
         self.dev
             .write_read(self.address, &[RegisterMap::AccelXOutH as u8], &mut data)
@@ -265,7 +236,7 @@ where
 
     /// Read raw gyroscope measurement data
     pub async fn read_gyro_data(&mut self) -> Result<RawData, T::Error> {
-        let mut data = [0; 6];
+        let mut data = [0; RawData::SIZE];
 
         self.dev
             .write_read(self.address, &[RegisterMap::GyroXOutH as u8], &mut data)
