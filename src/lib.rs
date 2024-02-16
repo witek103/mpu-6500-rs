@@ -76,6 +76,18 @@ where
         Ok(buf[0])
     }
 
+    pub async fn read_registers(
+        &mut self,
+        register: RegisterMap,
+        buf: &mut [u8],
+    ) -> Result<(), T::Error> {
+        self.dev
+            .write_read(self.address, &[register as u8], buf)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn write_register(
         &mut self,
         register: RegisterMap,
