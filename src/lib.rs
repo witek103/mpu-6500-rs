@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod calibration;
 pub mod raw_data;
 pub mod register_map;
 

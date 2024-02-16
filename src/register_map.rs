@@ -1,11 +1,19 @@
 #[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RegisterMap {
+    XgOffsetH = 0x13,
+    XgOffsetL = 0x14,
+    YgOffsetH = 0x15,
+    YgOffsetL = 0x16,
+    ZgOffsetH = 0x17,
+    ZgOffsetL = 0x18,
     SmplRtDiv = 0x19,
     Config = 0x1A,
     GyroConfig = 0x1B,
     AccelConfig = 0x1C,
     AccelConfig2 = 0x1D,
+    FifoEn = 0x23,
+    I2CMstCtrl = 0x24,
     IntPinCfg = 0x37,
     IntEnable = 0x38,
     AccelXOutH = 0x3B,
@@ -13,6 +21,9 @@ pub enum RegisterMap {
     SignalPathReset = 0x68,
     UserCtrl = 0x6A,
     PwrMgmt1 = 0x6B,
+    PwrMgmt2 = 0x6C,
+    FifoCountH = 0x72,
+    FifoRW = 0x74,
     WhoAmI = 0x75,
 }
 
