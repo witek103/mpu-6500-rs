@@ -4,8 +4,8 @@ pub mod calibration;
 pub mod raw_data;
 pub mod register_map;
 
-use embedded_hal_async::delay::DelayNs;
-use embedded_hal_async::i2c::{I2c, SevenBitAddress};
+use embedded_hal::blocking::delay::DelayMs;
+use embedded_hal::blocking::i2c::{SevenBitAddress, Write, WriteRead};
 use raw_data::RawData;
 use register_map::{AccelFullScaleRate, DigitalLowPassFilter, GyroFullScaleRate, RegisterMap};
 
@@ -19,9 +19,9 @@ pub struct Mpu6500<T> {
     address: SevenBitAddress,
 }
 
-impl<T> Mpu6500<T>
+impl<T, E> Mpu6500<T>
 where
-    T: I2c,
+    T: WriteRead<Error = E> + Write<Error = E>,
 {
     /// Use driver with default I2C address (AD0 line low)
     pub fn new(dev: T) -> Self {
@@ -40,26 +40,24 @@ where
     }
 
     /// Check `WHO_AM_I` response
-    pub async fn detected(&mut self) -> Result<bool, T::Error> {
-        let value = self.read_register(RegisterMap::WhoAmI).await?;
+    pub fn detected(&mut self) -> Result<bool, E> {
+        let value = self.read_register(RegisterMap::WhoAmI)?;
 
         Ok(value == WHO_AM_I)
     }
 
     /// Initialize IMU with reasonable default settings
-    pub async fn init(&mut self, delay: &mut impl DelayNs) -> Result<(), T::Error> {
-        self.reset(delay).await?;
-        self.wake_up().await?;
-        self.set_gyro_full_scale(GyroFullScaleRate::Dps2000).await?;
-        self.set_accel_full_scale(AccelFullScaleRate::G2).await?;
-        self.set_gyro_digital_low_pass_filter(DigitalLowPassFilter::Filter1)
-            .await?;
-        self.set_accel_digital_low_pass_filter(DigitalLowPassFilter::Filter1)
-            .await?;
-        self.set_sample_rate_divider(4).await?;
-        self.disable_interrupts().await?;
-        self.configure_interrupt_pin().await?;
-        self.set_clock_source(delay).await?;
+    pub fn init(&mut self, delay: &mut impl DelayMs<u32>) -> Result<(), E> {
+        self.reset(delay)?;
+        self.wake_up()?;
+        self.set_gyro_full_scale(GyroFullScaleRate::Dps2000)?;
+        self.set_accel_full_scale(AccelFullScaleRate::G2)?;
+        self.set_gyro_digital_low_pass_filter(DigitalLowPassFilter::Filter1)?;
+        self.set_accel_digital_low_pass_filter(DigitalLowPassFilter::Filter1)?;
+        self.set_sample_rate_divider(4)?;
+        self.disable_interrupts()?;
+        self.configure_interrupt_pin()?;
+        self.set_clock_source(delay)?;
 
         #[cfg(feature = "defmt")]
         defmt::trace!("MPU6500 initialized");
@@ -67,93 +65,78 @@ where
         Ok(())
     }
 
-    pub async fn read_register(&mut self, register: RegisterMap) -> Result<u8, T::Error> {
+    pub fn read_register(&mut self, register: RegisterMap) -> Result<u8, E> {
         let mut buf = [0; 1];
 
         self.dev
-            .write_read(self.address, &[register as u8], &mut buf)
-            .await?;
+            .write_read(self.address, &[register as u8], &mut buf)?;
 
         Ok(buf[0])
     }
 
-    pub async fn read_registers(
-        &mut self,
-        register: RegisterMap,
-        buf: &mut [u8],
-    ) -> Result<(), T::Error> {
-        self.dev
-            .write_read(self.address, &[register as u8], buf)
-            .await?;
+    pub fn read_registers(&mut self, register: RegisterMap, buf: &mut [u8]) -> Result<(), E> {
+        self.dev.write_read(self.address, &[register as u8], buf)?;
 
         Ok(())
     }
 
-    pub async fn write_register(
-        &mut self,
-        register: RegisterMap,
-        value: u8,
-    ) -> Result<(), T::Error> {
-        self.dev.write(self.address, &[register as u8, value]).await
+    pub fn write_register(&mut self, register: RegisterMap, value: u8) -> Result<(), E> {
+        self.dev.write(self.address, &[register as u8, value])
     }
 
     /// Reset routine
-    pub async fn reset(&mut self, delay: &mut impl DelayNs) -> Result<(), T::Error> {
-        self.write_register(RegisterMap::PwrMgmt1, 1 << 7).await?;
+    pub fn reset(&mut self, delay: &mut impl DelayMs<u32>) -> Result<(), E> {
+        self.write_register(RegisterMap::PwrMgmt1, 1 << 7)?;
 
-        delay.delay_ms(100).await;
+        delay.delay_ms(100);
 
-        self.write_register(RegisterMap::SignalPathReset, 0b111)
-            .await?;
+        self.write_register(RegisterMap::SignalPathReset, 0b111)?;
 
-        delay.delay_ms(100).await;
+        delay.delay_ms(100);
 
         Ok(())
     }
 
-    pub async fn wake_up(&mut self) -> Result<(), T::Error> {
-        self.write_register(RegisterMap::PwrMgmt1, 0).await
+    pub fn wake_up(&mut self) -> Result<(), E> {
+        self.write_register(RegisterMap::PwrMgmt1, 0)
     }
 
-    pub async fn set_gyro_full_scale(&mut self, scale: GyroFullScaleRate) -> Result<(), T::Error> {
-        let value = self.read_register(RegisterMap::GyroConfig).await?;
+    pub fn set_gyro_full_scale(&mut self, scale: GyroFullScaleRate) -> Result<(), E> {
+        let value = self.read_register(RegisterMap::GyroConfig)?;
 
         let value = (value & !(0b11 << 3)) | ((scale as u8) << 3);
 
-        self.write_register(RegisterMap::GyroConfig, value).await
+        self.write_register(RegisterMap::GyroConfig, value)
     }
 
-    pub async fn set_accel_full_scale(
-        &mut self,
-        scale: AccelFullScaleRate,
-    ) -> Result<(), T::Error> {
-        let value = self.read_register(RegisterMap::AccelConfig).await?;
+    pub fn set_accel_full_scale(&mut self, scale: AccelFullScaleRate) -> Result<(), E> {
+        let value = self.read_register(RegisterMap::AccelConfig)?;
 
         let value = (value & !(0b11 << 3)) | ((scale as u8) << 3);
 
-        self.write_register(RegisterMap::AccelConfig, value).await
+        self.write_register(RegisterMap::AccelConfig, value)
     }
 
-    pub async fn set_gyro_digital_low_pass_filter(
+    pub fn set_gyro_digital_low_pass_filter(
         &mut self,
         filter: DigitalLowPassFilter,
-    ) -> Result<(), T::Error> {
-        let value = self.read_register(RegisterMap::Config).await?;
+    ) -> Result<(), E> {
+        let value = self.read_register(RegisterMap::Config)?;
 
         let value = (value & !0b111) | (filter as u8);
 
-        self.write_register(RegisterMap::Config, value).await
+        self.write_register(RegisterMap::Config, value)
     }
 
-    pub async fn set_accel_digital_low_pass_filter(
+    pub fn set_accel_digital_low_pass_filter(
         &mut self,
         filter: DigitalLowPassFilter,
-    ) -> Result<(), T::Error> {
-        let value = self.read_register(RegisterMap::AccelConfig2).await?;
+    ) -> Result<(), E> {
+        let value = self.read_register(RegisterMap::AccelConfig2)?;
 
         let value = (value & !0b111) | (filter as u8);
 
-        self.write_register(RegisterMap::AccelConfig2, value).await
+        self.write_register(RegisterMap::AccelConfig2, value)
     }
 
     /// Divider is working only when `Fs = 1kHz`, so to set desired sampling rate:
@@ -161,52 +144,49 @@ where
     /// `divider = 1000 / SAMPLE_RATE_HZ - 1`
     ///
     /// Sampling rate must be between 4Hz and 1kHz.
-    pub async fn set_sample_rate_divider(&mut self, divider: u8) -> Result<(), T::Error> {
-        self.write_register(RegisterMap::SmplRtDiv, divider).await
+    pub fn set_sample_rate_divider(&mut self, divider: u8) -> Result<(), E> {
+        self.write_register(RegisterMap::SmplRtDiv, divider)
     }
 
-    pub async fn disable_interrupts(&mut self) -> Result<(), T::Error> {
-        self.write_register(RegisterMap::IntEnable, 0).await
+    pub fn disable_interrupts(&mut self) -> Result<(), E> {
+        self.write_register(RegisterMap::IntEnable, 0)
     }
 
     /// Drive interrupt pit when new measurement data is ready
-    pub async fn enable_data_ready_interrupt(&mut self) -> Result<(), T::Error> {
-        self.write_register(RegisterMap::IntEnable, 1).await
+    pub fn enable_data_ready_interrupt(&mut self) -> Result<(), E> {
+        self.write_register(RegisterMap::IntEnable, 1)
     }
 
     /// Interrupt pin active low, latched, cleared on any measurement data read
-    pub async fn configure_interrupt_pin(&mut self) -> Result<(), T::Error> {
+    pub fn configure_interrupt_pin(&mut self) -> Result<(), E> {
         self.write_register(RegisterMap::IntPinCfg, 1 << 7 | 1 << 4 | 1 << 5)
-            .await
     }
 
     /// Auto select best clock source - tries PLL, then internal oscillator
-    pub async fn set_clock_source(&mut self, delay: &mut impl DelayNs) -> Result<(), T::Error> {
-        self.write_register(RegisterMap::PwrMgmt1, 1).await?;
+    pub fn set_clock_source(&mut self, delay: &mut impl DelayMs<u32>) -> Result<(), E> {
+        self.write_register(RegisterMap::PwrMgmt1, 1)?;
 
-        delay.delay_ms(50).await;
+        delay.delay_ms(50);
 
         Ok(())
     }
 
     /// Read raw accelerometer measurement data
-    pub async fn read_accel_data(&mut self) -> Result<RawData, T::Error> {
+    pub fn read_accel_data(&mut self) -> Result<RawData, E> {
         let mut data = [0; RawData::SIZE];
 
         self.dev
-            .write_read(self.address, &[RegisterMap::AccelXOutH as u8], &mut data)
-            .await?;
+            .write_read(self.address, &[RegisterMap::AccelXOutH as u8], &mut data)?;
 
         Ok(data.into())
     }
 
     /// Read raw gyroscope measurement data
-    pub async fn read_gyro_data(&mut self) -> Result<RawData, T::Error> {
+    pub fn read_gyro_data(&mut self) -> Result<RawData, E> {
         let mut data = [0; RawData::SIZE];
 
         self.dev
-            .write_read(self.address, &[RegisterMap::GyroXOutH as u8], &mut data)
-            .await?;
+            .write_read(self.address, &[RegisterMap::GyroXOutH as u8], &mut data)?;
 
         Ok(data.into())
     }
